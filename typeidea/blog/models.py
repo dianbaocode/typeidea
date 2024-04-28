@@ -24,6 +24,18 @@ class Category(models.Model):
     class Meta:
         verbose_name = verbose_name_plural = '分类'
 
+    @classmethod
+    def get_navs(cls):
+        categories = cls.objects.filter(status=cls.STATUS_NORMAL)
+        nav_categories = []
+        normal_categories = []
+        for cate in categories:
+            if cate.is_nav:
+                nav_categories.append(cate)
+            else:
+                normal_categories.append(cate)
+        return {'navs': nav_categories, 'categories': normal_categories}
+
 
 class Tag(models.Model):
     STATUS_NORMAL = 1
@@ -65,6 +77,8 @@ class Post(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='作者')
     created_time = models.DateTimeField(verbose_name='创建时间', auto_now_add=True,
                                         editable=False)
+    pv = models.PositiveIntegerField(default=1)
+    uv = models.PositiveIntegerField(default=1)
 
     def __str__(self):
         if len(str(self.title)) > 50:
@@ -74,3 +88,33 @@ class Post(models.Model):
     class Meta:
         verbose_name = verbose_name_plural = '文章'
         ordering = ['-id']
+
+    @staticmethod
+    def get_by_tag(tag_id):
+        try:
+            tag = Tag.objects.get(pk=tag_id)
+        except Tag.DoesNotExist:
+            tag = None
+            post_list = []
+        else:
+            post_list = tag.post_set.filter(status=Post.STATUS_NORMAL).select_related('owner', 'category')
+        return post_list, tag
+
+    @staticmethod
+    def get_by_category(category_id):
+        try:
+            category = Tag.objects.get(pk=category_id)
+        except Tag.DoesNotExist:
+            category = None
+            post_list = []
+        else:
+            post_list = Category.post_set.filter(status=Post.STATUS_NORMAL).select_related('owner', 'category')
+        return post_list, category
+
+    @classmethod
+    def latest_post(cls):
+        return cls.objects.filter(status=cls.STATUS_NORMAL)
+
+    @classmethod
+    def hot_posts(cls):
+        return cls.objects.filter(status=cls.STATUS_NORMAL).order_by('-pv')
